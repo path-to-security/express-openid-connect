@@ -83,30 +83,24 @@ module.exports = function (params) {
         try {
           const redirectUri = res.oidc.getRedirectUri();
 
-          let expectedState;
+
           let tokenSet;
           try {
             const callbackParams = client.callbackParams(req);
-            expectedState = transient.getOnce('state', req, res);
-            const max_age = parseInt(
-              transient.getOnce('max_age', req, res),
-              10
-            );
-            const code_verifier = transient.getOnce('code_verifier', req, res);
-            const nonce = transient.getOnce('nonce', req, res);
+            const authVerification = transient.getOnce('auth_verification', req, res);
+            const { max_age, code_verifier, nonce, state } = JSON.parse(authVerification);
 
             tokenSet = await client.callback(redirectUri, callbackParams, {
               max_age,
               code_verifier,
               nonce,
-              state: expectedState,
+              state,
             });
+
+            req.openidState = decodeState(state);
           } catch (err) {
             throw createError.BadRequest(err.message);
           }
-
-          // TODO:?
-          req.openidState = decodeState(expectedState);
 
           // intentional clone of the properties on tokenSet
           Object.assign(req[config.session.name], {
